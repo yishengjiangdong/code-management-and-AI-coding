@@ -1,0 +1,41 @@
+// 优化后的物流配送路线规划代码
+function planDeliveryRoutes(warehouses, customers) {
+  // 将仓库和客户整合为城市节点
+  const cities = [...warehouses, ...customers];
+  // 配置遗传算法参数（根据实际业务场景调整）
+  const populationSize = 100;
+  const mutationRate = 0.02;
+  const generations = 500;
+  // 执行遗传算法求解 TSP 近似解
+  const bestPath = geneticAlgorithmTSP(cities, populationSize, mutationRate, generations);
+  // 根据最佳路径生成配送路线规划
+  const deliveryRoutes = generateDeliveryRoutes(bestPath, warehouses.length);
+  return deliveryRoutes;
+}
+
+function generateDeliveryRoutes(bestPath, warehouseCount) {
+  // 根据最佳路径生成配送路线规划的函数
+  const routes = [];
+  let currentRoute = [];
+  // 遍历最佳路径，区分仓库和客户节点
+  for (let i = 0; i < bestPath.length; i++) {
+    const nodeIndex = bestPath[i];
+    if (nodeIndex < warehouseCount) {
+      // 仓库节点，作为路线的起点或中转点
+      if (currentRoute.length > 0) {
+        // 如果当前路线已有内容，结束当前路线，开始新路线
+        routes.push(currentRoute);
+        currentRoute = [];
+      }
+      currentRoute.push({ type: 'warehouse', index: nodeIndex });
+    } else {
+      // 客户节点，添加到当前路线
+      currentRoute.push({ type: 'customer', index: nodeIndex - warehouseCount });
+    }
+  }
+  // 添加最后一条路线
+  if (currentRoute.length > 0) {
+    routes.push(currentRoute);
+  }
+  return routes;
+}
