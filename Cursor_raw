@@ -1,0 +1,174 @@
+// 遗传算法求解 TSP 近似解的简化示例
+function geneticAlgorithmTSP(cities, populationSize, mutationRate, generations) {
+  // 初始化种群
+  let population = initializePopulation(populationSize, cities);
+  for (let i = 0; i < generations; i++) {
+    // 评估适应度
+    const fitnessScores = evaluateFitness(population, cities);
+    // 选择操作
+    const selectedParents = selectParents(population, fitnessScores);
+    // 交叉操作
+    const offspring = crossover(selectedParents);
+    // 变异操作
+    mutate(offspring, mutationRate);
+    // 更新种群
+    population = replacePopulation(population, offspring, fitnessScores);
+  }
+  // 获取最佳路径
+  const bestPath = getBestPath(population, cities);
+  return bestPath;
+}
+
+function initializePopulation(size, cities) {
+  // 初始化种群的函数
+  const population = [];
+  for (let i = 0; i < size; i++) {
+    // 随机生成路径
+    const path = [...cities].sort(() => Math.random() - 0.5);
+    population.push(path);
+  }
+  return population;
+}
+
+function evaluateFitness(population, cities) {
+  // 评估适应度的函数（路径长度作为适应度指标）
+  return population.map(path => {
+    let distance = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+      distance += calculateDistance(cities[path[i]], cities[path[i + 1]]);
+    }
+    // 返回路径长度的倒数作为适应度（路径越短适应度越高）
+    return 1 / distance;
+  });
+}
+
+function selectParents(population, fitnessScores) {
+  // 选择父代的函数（轮盘赌选择）
+  const totalFitness = fitnessScores.reduce((sum, score) => sum + score, 0);
+  const selectionProbabilities = fitnessScores.map(score => score / totalFitness);
+  const parents = [];
+  for (let i = 0; i < population.length / 2; i++) {
+    let parent1 = population[weightedRandomIndex(selectionProbabilities)];
+    let parent2 = population[weightedRandomIndex(selectionProbabilities)];
+    // 避免选择同一个父代两次
+    while (parent2 === parent1) {
+      parent2 = population[weightedRandomIndex(selectionProbabilities)];
+    }
+    parents.push([parent1, parent2]);
+  }
+  return parents;
+}
+
+function weightedRandomIndex(probabilities) {
+  // 加权随机选择索引的函数
+  const random = Math.random();
+  let sum = 0;
+  for (let i = 0; i < probabilities.length; i++) {
+    sum += probabilities[i];
+    if (random <= sum) {
+      return i;
+    }
+  }
+  return probabilities.length - 1;
+}
+
+function crossover(parents) {
+  // 交叉操作的函数（部分映射交叉）
+  const offspring = [];
+  for (const [parent1, parent2] of parents) {
+    const child1 = [...parent1];
+    const child2 = [...parent2];
+    // 随机选择交叉点
+    const start = Math.floor(Math.random() * parent1.length);
+    const end = Math.floor(Math.random() * parent1.length) + 1;
+    // 部分映射交叉逻辑
+    const map1 = new Map();
+    const map2 = new Map();
+    for (let i = start; i < end; i++) {
+      map1.set(parent1[i], parent2[i]);
+      map2.set(parent2[i], parent1[i]);
+    }
+    for (let i = 0; i < child1.length; i++) {
+      if (i < start || i >= end) {
+        let current = child1[i];
+        while (map1.has(current)) {
+          current = map1.get(current);
+        }
+        child1[i] = current;
+      }
+    }
+    for (let i = 0; i < child2.length; i++) {
+      if (i < start || i >= end) {
+        let current = child2[i];
+        while (map2.has(current)) {
+          current = map2.get(current);
+        }
+        child2[i] = current;
+      }
+    }
+    offspring.push(child1, child2);
+  }
+  return offspring;
+}
+
+function mutate(offspring, mutationRate) {
+  // 变异操作的函数（交换变异）
+  for (const child of offspring) {
+    for (let i = 0; i < child.length; i++) {
+      if (Math.random() < mutationRate) {
+        const j = Math.floor(Math.random() * child.length);
+        // 交换两个城市的位置
+        [child[i], child[j]] = [child[j], child[i]];
+      }
+    }
+  }
+}
+
+function replacePopulation(population, offspring, fitnessScores) {
+  // 更新种群的函数（精英保留策略）
+  // 合并父代和子代
+  const combined = population.concat(offspring);
+  // 计算所有个体的适应度
+  const allFitness = [...fitnessScores, ...offspring.map(child => {
+    let distance = 0;
+    for (let i = 0; i < child.length - 1; i++) {
+      distance += calculateDistance(cities[child[i]], cities[child[i + 1]]);
+    }
+    return 1 / distance;
+  })];
+  // 按适应度排序并选择最优的个体组成新的种群
+  const sortedIndices = allFitness
+    .map((value, index) => ({ value, index }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, population.length)
+    .map(item => item.index);
+  return sortedIndices.map(index => index < population.length ? population[index] : offspring[index - population.length]);
+}
+
+function getBestPath(population, cities) {
+  // 获取最佳路径的函数
+  let bestPath = population[0];
+  let bestDistance = calculateTotalDistance(bestPath, cities);
+  for (const path of population) {
+    const distance = calculateTotalDistance(path, cities);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestPath = path;
+    }
+  }
+  return bestPath;
+}
+
+function calculateDistance(city1, city2) {
+  // 计算两个城市之间的欧几里得距离
+  return Math.sqrt(Math.pow(city1.x - city2.x, 2) + Math.pow(city1.y - city2.y, 2));
+}
+
+function calculateTotalDistance(path, cities) {
+  // 计算路径的总距离
+  let distance = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    distance += calculateDistance(cities[path[i]], cities[path[i + 1]]);
+  }
+  return distance;
+}
